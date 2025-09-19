@@ -7,6 +7,7 @@ from core import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('bot_app.urls')),
+    path('webhook/pushinpay/', include('integrations.urls')),
 ]
 
 # Servir arquivos estáticos e de mídia durante desenvolvimento
