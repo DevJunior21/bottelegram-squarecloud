@@ -60,17 +60,27 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # SquareCloud - usar PostgreSQL via DATABASE_URL ou SQLite como fallback
 DATABASE_URL = config('DATABASE_URL', default='')
 
-if DATABASE_URL:
-    # Usar banco PostgreSQL da SquareCloud
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
+# Verificar se DATABASE_URL existe e é válida
+if DATABASE_URL and DATABASE_URL.startswith('postgresql'):
+    try:
+        # Usar banco PostgreSQL da SquareCloud
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=DATABASE_URL,
+                conn_max_age=600,
+                conn_health_checks=True,
+            )
+        }
+    except Exception:
+        # Se houver erro, usar SQLite
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 else:
-    # Fallback para SQLite em desenvolvimento
+    # Usar SQLite por padrão
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
