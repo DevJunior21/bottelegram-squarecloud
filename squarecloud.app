@@ -1,6 +1,7 @@
-displayName=BotTelegram
-description=Bot Telegram com sistema de assinaturas e pagamentos
-main=manage.py
-memory=512
-version=python20
-startup=python manage.py migrate && python manage.py runserver 0.0.0.0:$PORT
+DISPLAY_NAME=BotTelegram
+DESCRIPTION=Bot Telegram com sistema de assinaturas e pagamentos
+SUBDOMAIN=bottelegram
+MEMORY=512
+VERSION=python-3.11
+START=python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT
+INSTALL=pip install --upgrade pip && pip install -r requirements.txt

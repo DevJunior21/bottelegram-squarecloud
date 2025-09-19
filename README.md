@@ -1,79 +1,85 @@
-# BotTelegram SquareCloud
+# BotTelegram para SquareCloud
 
 Bot Telegram otimizado para deploy na plataforma SquareCloud.
 
-## Descrição
-
-Este projeto é uma versão otimizada do BotTelegram para ser executado na plataforma SquareCloud. Ele inclui todas as configurações necessárias para deploy simplificado na plataforma.
-
 ## Estrutura do Projeto
 
-- `core/` - Configurações principais do Django
-- `bot/` - Código do bot Telegram
-- `tasks/` - Tarefas assíncronas
-- `integrations/` - Integrações com APIs externas
-- `promocoes/` - Sistema de promoções
-- `carrossel/` - Sistema de carrossel de ofertas
-- `welcome/` - Sistema de boas-vindas
-- `static/` - Arquivos estáticos
-- `media/` - Arquivos de mídia
-- `logs/` - Arquivos de log
-
-## Requisitos
-
-- Python 3.10+
-- Django 4.2.11
-- python-telegram-bot 20.0
-- PostgreSQL (para ambiente de produção)
-- Redis (para ambiente de produção)
+```
+bottelegram-squarecloud/
+├── squarecloud.app          # Configuração do SquareCloud
+├── requirements.txt         # Dependências do projeto
+├── runtime.txt             # Versão do Python
+├── .env.example            # Exemplo de variáveis de ambiente
+├── manage.py               # Django management
+├── core/                   # Configurações do Django
+│   ├── settings.py         # Configurações otimizadas
+│   ├── urls.py             # URLs principais
+│   └── wsgi.py             # WSGI
+├── bot_app/                # App do bot
+│   ├── views.py            # Webhook views
+│   ├── urls.py             # URLs do bot
+│   └── management/         # Comandos de management
+└── staticfiles/            # Arquivos estáticos
+```
 
 ## Configuração
 
-1. Crie um arquivo `.env` com as variáveis de ambiente necessárias:
-   ```
-   DEBUG=True
-   DJANGO_SECRET_KEY=sua_chave_secreta_aqui
-   TELEGRAM_BOT_TOKEN=seu_token_do_bot_telegram_aqui
-   DATABASE_URL=postgresql://usuario:senha@host:porta/banco
-   REDIS_URL=redis://host:porta
+1. **Criar arquivo `.env`** a partir do `.env.example`:
+   ```bash
+   cp .env.example .env
    ```
 
-2. Instale as dependências:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Execute as migrações:
-   ```bash
-   python manage.py migrate
-   ```
-
-4. Colete os arquivos estáticos:
-   ```bash
-   python manage.py collectstatic --noinput
-   ```
-
-5. Inicie o servidor:
-   ```bash
-   python manage.py runserver
-   ```
+2. **Configurar variáveis de ambiente** no arquivo `.env`:
+   - `DJANGO_SECRET_KEY`: Chave secreta do Django
+   - `BOT_TOKEN`: Token do bot do Telegram
+   - `WEBHOOK_URL`: URL do webhook (https://seudominio.squarecloud.app/webhook/)
 
 ## Deploy na SquareCloud
 
-1. Crie uma conta na [SquareCloud](https://squarecloud.app)
-2. Crie um novo aplicativo
-3. Faça upload dos arquivos do projeto
-4. Configure as variáveis de ambiente na plataforma
-5. Inicie o aplicativo
+1. **Criar aplicação** no painel da SquareCloud
+2. **Fazer upload do projeto** (zip do diretório)
+3. **Configurar variáveis de ambiente** no painel da SquareCloud
+4. **Iniciar aplicação**
 
-## Contribuindo
+## Comandos Úteis
 
-1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -m 'Adiciona nova feature'`)
-4. Faça push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
+```bash
+# Instalar dependências
+pip install -r requirements.txt
+
+# Executar migrações
+python manage.py migrate
+
+# Coletar arquivos estáticos
+python manage.py collectstatic --noinput
+
+# Configurar webhook do Telegram
+python manage.py setup_webhook
+
+# Iniciar servidor de desenvolvimento
+python manage.py runserver
+```
+
+## Variáveis de Ambiente Necessárias
+
+Na SquareCloud, configure as seguintes variáveis de ambiente:
+
+```
+DJANGO_SECRET_KEY=sua_chave_secreta_aqui
+DEBUG=False
+ALLOWED_HOSTS=.squarecloud.app,localhost,127.0.0.1
+BOT_TOKEN=seu_token_do_bot_aqui
+DATABASE_URL=sqlite:///./db.sqlite3
+REDIS_URL=redis://localhost:6379/0
+WEBHOOK_URL=https://seudominio.squarecloud.app/webhook/
+```
+
+## Solução de Problemas
+
+1. **Erro de dependências**: Verifique se todas as variáveis de ambiente estão configuradas
+2. **Webhook não funciona**: Verifique se o `WEBHOOK_URL` está correto
+3. **Problemas com permissões**: Verifique as configurações de `ALLOWED_HOSTS`
 
 ## Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+MIT

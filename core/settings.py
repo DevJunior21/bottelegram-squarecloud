@@ -1,24 +1,19 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+from decouple import config
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Carregar variáveis de ambiente
-load_dotenv(os.path.join(BASE_DIR, '.env'))
-
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-development-key-for-squarecloud')
+SECRET_KEY = config('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 # SquareCloud - hosts permitidos
-if os.getenv('SQUARECLOUD'):
-    ALLOWED_HOSTS = ['*']  # SquareCloud cuida da segurança
-else:
-    ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -28,15 +23,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'core',
-    'bot',
-    'tasks',
-    'integrations',
+    'bot_app',
     'django_celery_beat',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -66,25 +59,11 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database
 # SquareCloud - usar variáveis de ambiente da plataforma
-if os.getenv('SQUARECLOUD'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DATABASE_NAME', ''),
-            'USER': os.getenv('DATABASE_USER', ''),
-            'PASSWORD': os.getenv('DATABASE_PASSWORD', ''),
-            'HOST': os.getenv('DATABASE_HOST', ''),
-            'PORT': os.getenv('DATABASE_PORT', '5432'),
-        }
-    }
-else:
-    # Configuração local para desenvolvimento
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+DATABASES = {
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL', default='sqlite:///./db.sqlite3')
+    )
+}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -110,19 +89,19 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# WhiteNoise settings
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # SquareCloud - porta do servidor
-PORT = os.environ.get('PORT', '8000')
+PORT = int(os.environ.get('PORT', 8000))
 
 # Configurações do Redis para SquareCloud
-if os.getenv('SQUARECLOUD'):
-    REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
-else:
-    REDIS_URL = 'redis://localhost:6379/0'
+REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
 
 # Configuração do Celery
 CELERY_BROKER_URL = REDIS_URL
@@ -136,10 +115,10 @@ CELERY_TIMEZONE = 'America/Sao_Paulo'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # Configurações específicas do bot
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_GROUP_ID = os.getenv('TELEGRAM_GROUP_ID', '')
+BOT_TOKEN = config('BOT_TOKEN', default='')
+TELEGRAM_GROUP_ID = config('TELEGRAM_GROUP_ID', default='')
 
 # Configurações da PushingPay
-PUSHINPAY_API_TOKEN = os.getenv('PUSHINPAY_API_TOKEN', '')
-PUSHINGPAY_WEBHOOK_SECRET = os.getenv('PUSHINGPAY_WEBHOOK_SECRET', '')
-WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')
+PUSHINPAY_API_TOKEN = config('PUSHINPAY_API_TOKEN', default='')
+PUSHINGPAY_WEBHOOK_SECRET = config('PUSHINGPAY_WEBHOOK_SECRET', default='')
+WEBHOOK_URL = config('WEBHOOK_URL', default='')
