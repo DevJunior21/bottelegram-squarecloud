@@ -13,7 +13,11 @@ SECRET_KEY = config('DJANGO_SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # SquareCloud - hosts permitidos
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+
+# Para SquareCloud, permitir todos os hosts por padrão
+if not config('ALLOWED_HOSTS', default=''):
+    ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
