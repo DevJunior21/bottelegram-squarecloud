@@ -19,6 +19,19 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 if not config('ALLOWED_HOSTS', default=''):
     ALLOWED_HOSTS = ['*']
 
+# Configurações de segurança para SquareCloud
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.squarecloud.app',
+    'https://*.squareweb.app',
+    'https://bottelegramnew.squareweb.app',
+]
+
+# Se em produção, usar configurações mais específicas
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = False  # SquareCloud já gerencia isso
+    USE_TZ = True
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -35,6 +48,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'core.middleware.CSRFDebugMiddleware',  # Debug CSRF
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
