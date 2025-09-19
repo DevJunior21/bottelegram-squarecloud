@@ -24,7 +24,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'bot_app',
-    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -58,12 +57,25 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # Database
-# SquareCloud - usar variáveis de ambiente da plataforma
-DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL', default='sqlite:///./db.sqlite3')
-    )
-}
+# SquareCloud - usar SQLite por padrão ou PostgreSQL se configurado
+DATABASE_URL = config('DATABASE_URL', default='')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    # Usar SQLite como padrão
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -100,19 +112,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # SquareCloud - porta do servidor
 PORT = int(os.environ.get('PORT', 8000))
 
-# Configurações do Redis para SquareCloud
-REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
-
-# Configuração do Celery
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'America/Sao_Paulo'
-
-# Configuração do Celery Beat para usar django_celery_beat
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+# Redis e Celery desabilitados para deploy inicial
+# Adicionar quando necessário
 
 # Configurações específicas do bot
 BOT_TOKEN = config('BOT_TOKEN', default='')
