@@ -3,5 +3,5 @@ DESCRIPTION=Bot Telegram com Django
 SUBDOMAIN=bottelegram
 MEMORY=512
 VERSION=python-3.11
-START=cd /application && python manage.py migrate --noinput && mkdir -p staticfiles && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:$PORT
+START=cd /application && python manage.py migrate --noinput && python manage.py create_admin && mkdir -p staticfiles && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:$PORT
 INSTALL=pip install --upgrade pip && pip install -r requirements.txt
