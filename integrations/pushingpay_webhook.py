@@ -3,11 +3,10 @@ import hmac
 import hashlib
 import json
 import logging
-from urllib.parse import parse_qs
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from tasks.tasks import processar_webhook_pushinpay
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -18,163 +17,100 @@ def verificar_assinatura_webhook(payload, signature, secret):
     if not secret:
         logger.warning("Webhook secret não configurado")
         return False
-    
+
     # Calcular a assinatura esperada usando SHA256
     expected_signature = hmac.new(
         secret.encode('utf-8'),
         payload,
         hashlib.sha256
     ).hexdigest()
-    
+
     # Comparar as assinaturas de forma segura
     return hmac.compare_digest(signature, expected_signature)
 
-def parse_webhook_data(request):
+def processar_webhook_pushinpay(data):
     """
-    Parseia os dados do webhook tanto de JSON quanto de form-urlencoded
+    Processa o webhook da PushingPay
     """
-    content_type = request.headers.get('Content-Type', '').lower()
-    
-    if 'application/json' in content_type:
-        # Processar como JSON
+    try:
+        # Importar aqui para evitar dependência circular
+        from bot_app.models import Pagamento
+
+        transaction_id = data.get('transaction_id') or data.get('id')
+        status = data.get('status', '').upper()
+
+        if not transaction_id:
+            logger.error("Transaction ID não encontrado no webhook")
+            return False
+
         try:
-            payload_str = request.body.decode('utf-8')
-            return json.loads(payload_str)
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON inválido no webhook: {e}")
-            raise ValueError(f"JSON inválido: {e}")
-    
-    elif 'application/x-www-form-urlencoded' in content_type:
-        # Processar como form-urlencoded
-        try:
-            payload_str = request.body.decode('utf-8')
-            parsed_data = parse_qs(payload_str)
-            
-            # Converter de list para string (parse_qs retorna listas)
-            data = {}
-            for key, value_list in parsed_data.items():
-                data[key] = value_list[0] if value_list else ''
-            
-            return data
-        except Exception as e:
-            logger.error(f"Erro ao processar form-urlencoded: {e}")
-            raise ValueError(f"Form-urlencoded inválido: {e}")
-    
-    else:
-        # Tentar processar como JSON por padrão
-        try:
-            payload_str = request.body.decode('utf-8')
-            return json.loads(payload_str)
-        except json.JSONDecodeError:
-            # Se falhar, tentar como form-urlencoded
-            try:
-                payload_str = request.body.decode('utf-8')
-                parsed_data = parse_qs(payload_str)
-                data = {}
-                for key, value_list in parsed_data.items():
-                    data[key] = value_list[0] if value_list else ''
-                return data
-            except Exception as e:
-                logger.error(f"Erro ao processar payload: {e}")
-                raise ValueError(f"Formato de payload não suportado: {e}")
+            pagamento = Pagamento.objects.get(pushinpay_transaction_id=transaction_id)
+
+            # Mapear status da PushinPay para nosso sistema
+            if status in ['PAID', 'CONFIRMED', 'APPROVED']:
+                pagamento.status = 'pago'
+                # Ativar assinatura
+                if pagamento.assinatura:
+                    pagamento.assinatura.status = 'ativa'
+                    pagamento.assinatura.save()
+                    logger.info(f"Assinatura {pagamento.assinatura.id} ativada via webhook")
+
+            elif status in ['CANCELLED', 'EXPIRED', 'FAILED']:
+                pagamento.status = 'cancelado'
+            elif status in ['PENDING', 'WAITING']:
+                pagamento.status = 'pendente'
+
+            pagamento.save()
+            logger.info(f"Pagamento {pagamento.id} atualizado para status: {pagamento.status}")
+            return True
+
+        except Pagamento.DoesNotExist:
+            logger.error(f"Pagamento com transaction_id {transaction_id} não encontrado")
+            return False
+
+    except Exception as e:
+        logger.error(f"Erro ao processar webhook PushinPay: {e}")
+        return False
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def pushinpay_webhook_handler(request):
     """
-    Handler para webhooks da PushingPay
+    Handler principal do webhook da PushingPay
     """
-    print("=== WEBHOOK RECEBIDO ===")
-    print(f"Method: {request.method}")
-    print(f"Headers: {dict(request.headers)}")
-    print(f"Body length: {len(request.body)}")
-    print(f"Body raw: {request.body}")
-    
     try:
-        # Obter o payload
-        payload = request.body
-        payload_str = payload.decode('utf-8')
-        
-        # Log detalhado para debug
-        logger.info(f"Webhook recebido - Content-Type: {request.headers.get('Content-Type')}")
-        logger.info(f"Payload length: {len(payload)} bytes")
-        logger.info(f"Payload raw: {payload}")
-        logger.info(f"Payload string: {payload_str}")
-        
-        # Obter a assinatura do header (PushinPay usa X-Pushinpay-Token)
-        signature = request.headers.get('X-Pushinpay-Token', '')
-        
-        # Log para debug
-        logger.info(f"Webhook recebido - Signature: {signature}")
-        
-        # Verificar se o payload está vazio
-        if not payload_str.strip():
-            logger.warning("Payload vazio recebido no webhook")
-            print("PAYLOAD VAZIO!")
-            return JsonResponse({'error': 'Payload vazio'}, status=400)
-        
-        # Verificar a assinatura
-        webhook_secret = os.getenv('PUSHINGPAY_WEBHOOK_SECRET')
-        # TEMPORARIAMENTE DESABILITADO PARA TESTE
-        # if not verificar_assinatura_webhook(payload, signature, webhook_secret):
-        #     logger.error(f"Assinatura inválida do webhook: {signature}")
-        #     logger.error(f"Secret configurado: {webhook_secret[:10]}..." if webhook_secret else "Secret não configurado")
-        #     return JsonResponse({'error': 'Assinatura inválida'}, status=401)
-        
-        logger.info(f"Webhook recebido - Signature: {signature}")
-        logger.info(f"Secret configurado: {webhook_secret[:10]}..." if webhook_secret else "Secret não configurado")
-        logger.info("Validação de assinatura temporariamente desabilitada para teste")
-        
-        # Parsear os dados do webhook
+        # Obter o secret do webhook das configurações
+        webhook_secret = getattr(settings, 'PUSHINGPAY_WEBHOOK_SECRET', '')
+
+        # Obter assinatura do header
+        signature = request.META.get('HTTP_X_SIGNATURE', '')
+
+        # Verificar assinatura se o secret estiver configurado
+        if webhook_secret and signature:
+            if not verificar_assinatura_webhook(request.body, signature, webhook_secret):
+                logger.warning("Assinatura do webhook PushinPay inválida")
+                return JsonResponse({'error': 'Invalid signature'}, status=401)
+        elif webhook_secret:
+            logger.warning("Webhook secret configurado mas assinatura não encontrada")
+            return JsonResponse({'error': 'Missing signature'}, status=401)
+        else:
+            logger.warning("Webhook PushinPay recebido sem verificação de assinatura")
+
+        # Parse do JSON
         try:
-            data = parse_webhook_data(request)
-        except ValueError as e:
-            logger.error(f"Erro ao parsear dados do webhook: {e}")
-            return JsonResponse({'error': str(e)}, status=400)
-        
-        # Log do webhook recebido
-        logger.info(f"Webhook PushingPay recebido: {data}")
-        
-        # Validar campos obrigatórios
-        required_fields = ['id', 'status']
-        for field in required_fields:
-            if field not in data:
-                logger.error(f"Campo obrigatório ausente no webhook: {field}")
-                return JsonResponse({'error': f'Campo obrigatório ausente: {field}'}, status=400)
-        
-        # Enfileirar para processamento assíncrono
-        processar_webhook_pushinpay.delay(data)
-        
-        logger.info(f"Webhook processado com sucesso: {data.get('id')}")
-        return JsonResponse({'status': 'ok', 'message': 'Webhook processado'})
-        
-    except Exception as e:
-        logger.error(f"Erro ao processar webhook: {e}")
-        return JsonResponse({'error': 'Erro interno do servidor'}, status=500)
+            data = json.loads(request.body.decode('utf-8'))
+        except json.JSONDecodeError:
+            logger.error("Erro ao decodificar JSON do webhook PushinPay")
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-def testar_webhook():
-    """
-    Função para testar o webhook localmente
-    """
-    import requests
-    
-    # Dados de teste
-    test_data = {
-        'id': 'test_transaction_123',
-        'status': 'PAID',
-        'value': 1000,  # R$ 10,00 em centavos
-        'created_at': '2024-01-01T12:00:00Z'
-    }
-    
-    # URL do webhook (ajuste conforme necessário)
-    webhook_url = 'http://localhost:8008/api/webhooks/pushinpay-notifications/'
-    
-    try:
-        response = requests.post(webhook_url, json=test_data)
-        print(f"Status: {response.status_code}")
-        print(f"Resposta: {response.text}")
-    except Exception as e:
-        print(f"Erro no teste: {e}")
+        logger.info(f"Webhook PushinPay recebido: {data}")
 
-if __name__ == '__main__':
-    testar_webhook()
+        # Processar webhook
+        if processar_webhook_pushinpay(data):
+            return JsonResponse({'status': 'success'})
+        else:
+            return JsonResponse({'error': 'Processing failed'}, status=400)
+
+    except Exception as e:
+        logger.error(f"Erro no handler do webhook PushinPay: {e}")
+        return JsonResponse({'error': 'Internal server error'}, status=500)
